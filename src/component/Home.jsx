@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import iconImg from "../img/icon.png";
 import "../scss/home.scss";
 import data from "../common/data";
 import util from "../common/util";
+import AllContent from "./All";
+import ArticalContent from "./Artical";
+import VideoContent from "./Video";
 
 const Home = (props) => {
   let tags = [
@@ -13,7 +16,8 @@ const Home = (props) => {
 
   let [headData, setHeadData] = useState(),
     [baseInfo, setBaseInfo] = useState(),
-    [currentTag, setCurrentTag] = useState("2"),
+    [currentTag, setCurrentTag] = useState(),
+    [tagHeadShow, setTagHeadShow] = useState(false),
     [contentData, setContentData] = useState();
 
   useEffect(() => {
@@ -26,47 +30,58 @@ const Home = (props) => {
     getInitData();
   }, []);
 
+  useLayoutEffect(() => {
+    judge();
+  }, [currentTag]);
+
   /**获取文章 | 视频列表
    * @params type 类型 不传全部  0 文章  1 视频
    * @params pos  页数
    * @params limit 每页拉多少
    * */
-  const getContentData = (params, type) => {
+  const getContentData = (params) => {
     data.getContent(params).then((res) => {
-      if (res.code === 1) {
-        let newContent = {...contentData};
-        newContent[type] = res.data.topic;
+      let now_tag = currentTag ? currentTag : "2";
+      if (res.code === 1 && res.data && res.data.topic) {
+        let newContent = { ...contentData };
+        newContent[now_tag].topic = [
+          ...contentData[now_tag].topic,
+          ...res.data.topic,
+        ];
+        newContent[now_tag].pos = res.data.pos;
         setContentData(newContent);
       }
     });
   };
 
+  //获取初始化全部数据
   const getInitData = async () => {
     let obj = {};
     let params = {
-      pos: "1",
-      limit: "10",
+      pos: 1,
+      limit: 10,
     };
     //全部
     await data.getContent({ ...params }).then((res) => {
       if (res.code === 1) {
-        obj["2"] = res.data.topic;
+        obj["2"] = res.data;
       }
     });
     //文章
     await data.getContent({ ...params, type: "0" }).then((res) => {
       if (res.code === 1) {
-        obj["0"] = res.data.topic;
+        obj["0"] = res.data;
       }
     });
     //视频
     await data.getContent({ ...params, type: "1" }).then((res) => {
       if (res.code === 1) {
-        obj["1"] = res.data.topic;
+        obj["1"] = res.data;
       }
     });
     if (Object.keys(obj).length === 3) {
       setContentData(obj);
+      setCurrentTag("2");
     }
   };
 
@@ -75,16 +90,140 @@ const Home = (props) => {
     window.location.href = url;
   };
 
+  //判断手机左右滑动
+  function judge(event) {
+    let startx; //让startx在touch事件函数里是全局性变量。
+    let endx;
+    let starty;
+    let endy;
+    var el = document.getElementById("io"); //触摸区域。
+    function cons() {
+      //独立封装这个事件可以保证执行顺序，从而能够访问得到应该访问的数据。
+      let tagArr = ["2", "0", "1"];
+      if (startx > endx) {
+        //判断左右移动程序:LEFT
+        let currentTagIndex = tagArr.findIndex((item) => {
+          return item == currentTag;
+        });
+        currentTagIndex < 2 && changeTag(tagArr[currentTagIndex + 1]);
+      } else if (startx < endx) {
+        let currentTagIndex = tagArr.findIndex((item) => {
+          return item == currentTag;
+        });
+        currentTagIndex > 0 && changeTag(tagArr[currentTagIndex - 1]);
+      }
+    }
+    el &&
+      el.addEventListener("touchstart", function (e) {
+        var touch = e.changedTouches;
+        startx = touch[0].clientX;
+        starty = touch[0].clientY;
+      });
+    el &&
+      el.addEventListener("touchend", function (e) {
+        var touch = e.changedTouches;
+        endx = touch[0].clientX;
+        endy = touch[0].clientY;
+        let offsetX = endx - startx;
+        let offsetY = endy - starty;
+        if (Math.abs(offsetY) <= Math.abs(offsetX)) {
+          e.preventDefault();
+          cons();
+        }
+      });
+  }
+
+  useLayoutEffect(() => {
+    window.onscroll = () => {
+      let scrollTop = document.documentElement.scrollTop;
+      let clientHeight =
+        window.innerHeight ||
+        Math.min(
+          document.documentElement.clientHeight,
+          document.body.clientHeight
+        );
+      let scrollHeight = Math.max(
+        document.documentElement.scrollHeight,
+        document.body.scrollHeight
+      );
+      let tagEle = document.querySelector(".tag");
+      if (tagEle) {
+        if (tagEle.offsetTop > 0 && scrollTop >= tagEle.offsetTop / 0.52) {
+          setTagHeadShow(true);
+        } else {
+          setTagHeadShow(false);
+        }
+      }
+      if (clientHeight + scrollTop >= scrollHeight) {
+        let findTag = currentTag ? currentTag : "2";
+
+        let params = {
+          pos: contentData[findTag].pos,
+          limit: 10,
+        };
+        if (findTag != "2") {
+          params.type = findTag;
+        }
+        getContentData(params);
+      }
+    };
+    // document.addEventListener("onscroll", function (e) {
+    //   let tagEle = document.querySelector(".tag");
+    //   if (
+    //     tagEle &&
+    //     document.documentElement.scrollTop >= tagEle.offsetTop * 0.52
+    //   ) {
+    //     setTagHeadShow(true)
+    //     tagEle.style.top = "0";
+    //   }
+    // });
+  }, [contentData]);
+
   //切换类型
   const changeTag = (tag_id) => {
+    let ele = document.querySelector(".content");
+    let moveEle = document.querySelector(".middle_move");
+    let moveTopEle = document.querySelector(".top_move");
+    let width =
+      window.innerWidth ||
+      document.documentElement.clientWidth ||
+      document.body.clientWidth;
     setCurrentTag(tag_id);
-    if (tag_id === "2") {
-      getContentData();
+    if (tag_id == "2") {
+      animate(ele, "marginLeft", 0);
+      moveEle.style.left = "2.58rem";
+      moveTopEle.style.left = "2.58rem";
+    } else if (tag_id == "0") {
+      animate(ele, "marginLeft", -1 * width);
+      moveEle.style.left = "3.54rem";
+      moveTopEle.style.left = "3.54rem";
     } else {
-      getContentData(tag_id);
+      animate(ele, "marginLeft", -2 * width);
+      moveEle.style.left = "4.5rem";
+      moveTopEle.style.left = "4.5rem";
     }
   };
 
+  //变速动画
+  function animate(element, attr, target) {
+    clearInterval(element.timeId);
+
+    element.timeId = setInterval(function () {
+      var current = parseInt(getStyle(element, attr));
+      var step = (target - current) / 10;
+      step = step > 0 ? Math.ceil(step) : Math.floor(step);
+      current += step;
+      element.style[attr] = current + "px";
+      if (current == target) {
+        clearInterval(element.timeId);
+      }
+    }, 20);
+  }
+  function getStyle(element, attr) {
+    return getComputedStyle
+      ? getComputedStyle(element, null)[attr]
+      : element.currentStyle[attr];
+  }
   //下载app
   const handleDownloadChelun = () => {
     util.jumpLink("https://chelun.com/url/HNxFKg6K");
@@ -112,6 +251,27 @@ const Home = (props) => {
               );
             })}
         </div>
+        <ul
+          className="tag_head"
+          style={{ display: tagHeadShow ? "flex" : "none" }}
+        >
+          {tags.map((item) => {
+            return (
+              <li
+                className={
+                  currentTag === item.id
+                    ? "tag_item bold_font"
+                    : "tag_item current_tag_item"
+                }
+                key={item.id}
+                onClick={() => changeTag(item.id)}
+              >
+                {item.tagName}
+              </li>
+            );
+          })}
+          <li className="move top_move"> </li>
+        </ul>
         <ul className="tag">
           {tags.map((item) => {
             return (
@@ -128,234 +288,25 @@ const Home = (props) => {
               </li>
             );
           })}
-          <li className="move"> </li>
+          <li className="move middle_move"> </li>
         </ul>
-        {/* 全部 */}
-        {contentData &&
-          currentTag === "2" &&
-          contentData["2"].map((item, index) => {
-            /* 三图 */
-            if (item.imgs_count === 3) {
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item three_cover">
-                    <div className="title">{item.title}</div>
-                    <div className="cover_pic">
-                      {item.imgs.map((img, index) => {
-                        return (
-                          <img
-                            src={img}
-                            className="pic_small"
-                            key={"img" + index}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div className="msg">
-                      <span>{item.ctime}</span>
-                      <span>
-                        <span>评论 {item.posts}</span>
-                        <span className="msg_num">浏览量 {item.pv}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            } else if (item.show_type == "2") {
-              /* 单图-大图 */
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item single_big_cover">
-                    <div className="title">{item.title}</div>
-                    {item.video && (
-                      <video
-                        poster={item.imgs[0]}
-                        controls
-                        className="cover_pic"
-                        style={{
-                          width: "6.86rem",
-                          height: "3.86rem",
-                          objectFit: "fill",
-                        }}
-                      >
-                        <source src={item.video[0].url} type="video/mp4" />
-                        你的浏览器不支持video
-                      </video>
-                    )}
-                    {!item.video && (
-                      <div className="cover_pic">
-                        <img src={item.imgs[0]} className="pic_big" />
-                      </div>
-                    )}
-                    <div className="msg">
-                      <span>{item.ctime}</span>
-                      <span>
-                        <span>评论 {item.posts}</span>
-                        <span className="msg_num">浏览量 {item.pv}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            } else {
-              /* 单图-小图 */
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item single_small_cover">
-                    <div className="left_content">
-                      <div className="title">{item.title}</div>
-                      <div className="msg">
-                        <span>{item.ctime}</span>
-                        <span>
-                          <span>评论 {item.posts}</span>
-                          <span className="msg_num">浏览量 {item.pv}</span>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="cover_pic">
-                      <img src={item.imgs[0]} className="pic_small" />
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            }
-          })}
 
-        {/* 文章 */}
-        {contentData &&
-          currentTag === "0" &&
-          contentData["0"].map((item, index) => {
-            /* 三图 */
-            if (item.imgs_count === 3) {
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item three_cover">
-                    <div className="title">{item.title}</div>
-                    <div className="cover_pic">
-                      {item.imgs.map((img, index) => {
-                        return (
-                          <img
-                            src={img}
-                            className="pic_small"
-                            key={"img" + index}
-                          />
-                        );
-                      })}
-                    </div>
-                    <div className="msg">
-                      <span>{item.ctime}</span>
-                      <span>
-                        <span>评论 {item.posts}</span>
-                        <span className="msg_num">浏览量 {item.pv}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            } else if (item.show_type == "2") {
-              /* 单图-大图 */
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item single_big_cover">
-                    <div className="title">{item.title}</div>
-                    <div className="cover_pic">
-                      <img src={item.imgs[0]} className="pic_big" />
-                    </div>
-                    <div className="msg">
-                      <span>{item.ctime}</span>
-                      <span>
-                        <span>评论 {item.posts}</span>
-                        <span className="msg_num">浏览量 {item.pv}</span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            } else {
-              /* 单图-小图 */
-              return (
-                <div
-                  onClick={() => gotoDetail(item.h5_url)}
-                  key={"content" + index}
-                >
-                  <div className="content_item single_small_cover">
-                    <div className="left_content">
-                      <div className="title">{item.title}</div>
-                      <div className="msg">
-                        <span>{item.ctime}</span>
-                        <span>
-                          <span>评论 {item.posts}</span>
-                          <span className="msg_num">浏览量 {item.pv}</span>
-                        </span>
-                      </div>
-                    </div>
-                    <div className="cover_pic">
-                      <img src={item.imgs[0]} className="pic_small" />
-                    </div>
-                  </div>
-                  <div className="split_line"></div>
-                </div>
-              );
-            }
-          })}
-
-        {/* 视频 */}
-        {contentData &&
-          currentTag === "1" &&
-          contentData["1"].map((item, index) => {
-            /* 单图-大图 */
-            return (
-              <div
-                onClick={() => gotoDetail(item.h5_url)}
-                key={"content" + index}
-              >
-                <div className="content_item single_big_cover">
-                  <div className="title">{item.title}</div>
-                  <video
-                    poster={item.imgs[0]}
-                    controls
-                    className="cover_pic"
-                    style={{
-                      width: "6.86rem",
-                      height: "3.86rem",
-                      objectFit: "fill",
-                    }}
-                  >
-                    <source src={item.video[0].url} type="video/mp4" />
-                    你的浏览器不支持video
-                  </video>
-                  <div className="msg">
-                    <span>{item.ctime}</span>
-                    <span>
-                      <span>评论 {item.posts}</span>
-                      <span className="msg_num">浏览量 {item.pv}</span>
-                    </span>
-                  </div>
-                </div>
-                <div className="split_line"></div>
-              </div>
-            );
-          })}
+        {contentData && (
+          <div className="content" id="io">
+            <AllContent
+              contentData={contentData["2"].topic}
+              gotoDetail={gotoDetail}
+            />
+            <ArticalContent
+              contentData={contentData["0"].topic}
+              gotoDetail={gotoDetail}
+            />
+            <VideoContent
+              contentData={contentData["1"].topic}
+              gotoDetail={gotoDetail}
+            />
+          </div>
+        )}
       </div>
       <div className="footer">
         <div className="footer_left">
