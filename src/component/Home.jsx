@@ -111,6 +111,7 @@ const Home = (props) => {
           return item == currentTag;
         });
         currentTagIndex > 0 && changeTag(tagArr[currentTagIndex - 1]);
+        cancelDisMouseWheel()
       }
     }
     el &&
@@ -127,12 +128,34 @@ const Home = (props) => {
         let offsetX = endx - startx;
         let offsetY = endy - starty;
         if (Math.abs(offsetY) <= Math.abs(offsetX)) {
-          e.preventDefault();
+          disabledMouseWheel()
           cons();
         }
       });
   }
-
+//阻止浏览器事件
+function disabledMouseWheel() {  
+  document.addEventListener('DOMMouseScroll', scrollFunc, false);  
+  document.addEventListener('mousewheel',scrollFunc,false);
+}
+//取消阻止浏览器事件
+function cancelDisMouseWheel(){
+  document.removeEventListener('DOMMouseScroll',scrollFunc,false);
+  document.removeEventListener('mousewheel',scrollFunc,false);
+}  
+function scrollFunc(evt) {  
+  evt = evt || window.event;  
+   if(evt.preventDefault) {  
+       // Firefox  
+       evt.preventDefault();  
+       evt.stopPropagation();  
+       } else{  
+       // IE  
+       evt.cancelBubble=true;  
+       evt.returnValue = false;  
+}  
+    return false;  
+}
   useLayoutEffect(() => {
     window.onscroll = () => {
       let scrollTop = document.documentElement.scrollTop;

@@ -3,7 +3,9 @@ import React, { useState, useEffect } from "react";
 const VideoContent = (props) => {
   let { contentData, gotoDetail } = props;
   return (
-    <div className="content_video">
+    <div className="content_video demo">
+
+<div>
       {contentData && contentData.map((item, index) => {
         /* 单图-大图 */
         return (
@@ -34,7 +36,7 @@ const VideoContent = (props) => {
             <div className="split_line"></div>
           </div>
         );
-      })}
+      })}</div>
     </div>
   );
 };

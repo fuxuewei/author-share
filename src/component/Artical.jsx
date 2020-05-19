@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 const ArticalContent = (props) => {
   let { contentData, gotoDetail } = props;
   return (
-    <div className="content_artical">
+    <div className="content_artical demo">
+      <div>
       {contentData && contentData.map((item, index) => {
         /* 三图 */
         if (item.imgs_count === 3) {
@@ -85,7 +86,7 @@ const ArticalContent = (props) => {
             </div>
           );
         }
-      })}
+      })}</div>
     </div>
   );
 };

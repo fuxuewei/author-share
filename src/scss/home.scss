@@ -126,21 +126,33 @@
     .content {
         width: 300%;
         display: flex;
-        // height: 20rem;
-        // overflow-y: hidden;
-        // position: relative;
-        // .content_video,
-        // .content_artical,
-        // .content_all {
-        //     position: absolute;
-        // }
-        // .content_artical {
-        //     left: 7.5rem;
-        // }
-        // .content_video {
-        //     left: 15rem;
-        // }
+        height: 20rem;max-height:20rem;
+        overflow-y: hidden;
+        position: relative;
+        .content_video,
+        .content_artical,
+        .content_all {
+            height: 20rem;
+            position: absolute;
+            overflow-y: auto;
+        }
+        .content_artical {
+            left: 7.5rem;
+        }
+        .content_video {
+            left: 15rem;
+        }
     }
+    .demo::-webkit-scrollbar {
+        display: none; /* Chrome Safari */
+      }
+      
+      .demo {
+        scrollbar-width: none; /* firefox */
+        -ms-overflow-style: none; /* IE 10+ */
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
     .content_item {
         padding: 0.32rem 0.3rem 0.32rem 0.34rem;
         .title {
