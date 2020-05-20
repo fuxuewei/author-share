@@ -8,7 +8,7 @@ import ArticalContent from "./Artical";
 import VideoContent from "./Video";
 import Swiper from "swiper/js/swiper.min.js";
 import "swiper/css/swiper.min.css";
-
+window.scrollTop = { "2": 0, "0": 0, "1": 0 }
 const Home = (props) => {
   let tags = [
     { id: "2", tagName: "全部" },
@@ -20,11 +20,10 @@ const Home = (props) => {
     [baseInfo, setBaseInfo] = useState(),
     [currentTag, setCurrentTag] = useState(),
     [tagHeadShow, setTagHeadShow] = useState(false),
-    [tagHeadTop, setTagHeadTop] = useState(),
     [mySwiper, setMySwiper] = useState(),
-    [scrollTop, setScrollTop] = useState({ "2": 0, "0": 0, "1": 0 }),
     [contentData, setContentData] = useState();
-
+  let flag = true;
+  window.tagHeadShow = tagHeadShow;
   useEffect(() => {
     data.getHeadMsg().then((res) => {
       if (res.code === 1) {
@@ -41,6 +40,7 @@ const Home = (props) => {
    * @params limit 每页拉多少
    * */
   const getContentData = (params) => {
+    flag = false;
     data.getContent(params).then((res) => {
       let now_tag = params.type ? params.type : "2";
       if (res.code === 1 && res.data && res.data.topic) {
@@ -51,6 +51,9 @@ const Home = (props) => {
         ];
         newContent[now_tag].pos = res.data.pos;
         setContentData(newContent);
+        setTimeout(() => {
+          flag = true;
+        }, 200)
       }
     });
   };
@@ -97,8 +100,8 @@ const Home = (props) => {
         document.documentElement.scrollTop ||
         window.pageYOffset ||
         document.body.scrollTop;
-        console.log(tagHeadShow,docscrollTop)
-      setTagHeadTop(docscrollTop);
+        console.log("-----", tagHeadShow,docscrollTop)
+      window.tagHeadTop = docscrollTop
     }
   }, [tagHeadShow]);
 
@@ -178,6 +181,8 @@ const Home = (props) => {
       }
       getContentData(params);
     }
+    console.log("vvv"+findTag)
+    window.scrollTop[findTag] = docscrollTop
   };
 
   const tagChangeScroll = () => {
@@ -203,11 +208,9 @@ const Home = (props) => {
         setTagHeadShow(false);
       }
     }
-    if (clientHeight + docscrollTop >= scrollHeight) {
-      let findTag = currentTag ? currentTag : "2";
-      let newSc = { ...scrollTop };
-      newSc[findTag] = docscrollTop;
-      setScrollTop(newSc);
+    let findTag = currentTag ? currentTag : "2";
+    if (flag && clientHeight + docscrollTop >= scrollHeight) {
+      
       let params = {
         pos: contentData[findTag].pos,
         limit: 10,
@@ -217,28 +220,33 @@ const Home = (props) => {
       }
       getContentData(params);
     }
+    console.log(window.scrollTop)
+    console.log("xxx"+findTag)
+    window.scrollTop[findTag] = docscrollTop
   };
   //切换类型
   const changeTag = (tag_id, index) => {
     mySwiper.slideTo(index, 500, false); //切换到slide，速度为500ms
     //保存当前tag的scrollTop
-    let newST = { ...scrollTop };
+    let newST = { ...window.scrollTop };
     let docscrollTop =
       document.documentElement.scrollTop ||
       window.pageYOffset ||
       document.body.scrollTop;
     newST[currentTag] = docscrollTop;
-    setScrollTop(newST);
+    window.scrollTop = newST
     changeTagId(tag_id);
   };
 
   const changeTagId = (tag_id) => {
     setCurrentTag(tag_id);
-    console.log(tagHeadTop)
+    const tagHeadTop = window.tagHeadTop;
+    const scrollTop = window.scrollTop;
     let currentTop =
-      tagHeadShow && scrollTop[tag_id] < tagHeadTop
+      window.tagHeadShow && scrollTop[tag_id] < tagHeadTop
         ? tagHeadTop
         : scrollTop[tag_id];
+        console.log(currentTop)
     let moveEle = document.querySelector(".middle_move");
     let moveTopEle = document.querySelector(".top_move");
     if (tag_id == "2") {
