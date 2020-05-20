@@ -6,6 +6,8 @@ import util from "../common/util";
 import AllContent from "./All";
 import ArticalContent from "./Artical";
 import VideoContent from "./Video";
+import Swiper from "swiper/js/swiper.min.js";
+import "swiper/css/swiper.min.css";
 
 const Home = (props) => {
   let tags = [
@@ -18,6 +20,9 @@ const Home = (props) => {
     [baseInfo, setBaseInfo] = useState(),
     [currentTag, setCurrentTag] = useState(),
     [tagHeadShow, setTagHeadShow] = useState(false),
+    [tagHeadTop, setTagHeadTop] = useState(),
+    [mySwiper, setMySwiper] = useState(),
+    [scrollTop, setScrollTop] = useState({ "2": 0, "0": 0, "1": 0 }),
     [contentData, setContentData] = useState();
 
   useEffect(() => {
@@ -30,10 +35,6 @@ const Home = (props) => {
     getInitData();
   }, []);
 
-  useLayoutEffect(() => {
-    judge();
-  }, [currentTag]);
-
   /**获取文章 | 视频列表
    * @params type 类型 不传全部  0 文章  1 视频
    * @params pos  页数
@@ -41,7 +42,7 @@ const Home = (props) => {
    * */
   const getContentData = (params) => {
     data.getContent(params).then((res) => {
-      let now_tag = currentTag ? currentTag : "2";
+      let now_tag = params.type ? params.type : "2";
       if (res.code === 1 && res.data && res.data.topic) {
         let newContent = { ...contentData };
         newContent[now_tag].topic = [
@@ -90,163 +91,169 @@ const Home = (props) => {
     window.location.href = url;
   };
 
-  //判断手机左右滑动
-  function judge(event) {
-    let startx; //让startx在touch事件函数里是全局性变量。
-    let endx;
-    let starty;
-    let endy;
-    var el = document.getElementById("io"); //触摸区域。
-    function cons() {
-      //独立封装这个事件可以保证执行顺序，从而能够访问得到应该访问的数据。
-      let tagArr = ["2", "0", "1"];
-      if (startx > endx) {
-        //判断左右移动程序:LEFT
-        let currentTagIndex = tagArr.findIndex((item) => {
-          return item == currentTag;
-        });
-        currentTagIndex < 2 && changeTag(tagArr[currentTagIndex + 1]);
-      } else if (startx < endx) {
-        let currentTagIndex = tagArr.findIndex((item) => {
-          return item == currentTag;
-        });
-        currentTagIndex > 0 && changeTag(tagArr[currentTagIndex - 1]);
-        cancelDisMouseWheel()
-      }
+  useEffect(() => {
+    if (tagHeadShow) {
+      let docscrollTop =
+        document.documentElement.scrollTop ||
+        window.pageYOffset ||
+        document.body.scrollTop;
+        console.log(tagHeadShow,docscrollTop)
+      setTagHeadTop(docscrollTop);
     }
-    el &&
-      el.addEventListener("touchstart", function (e) {
-        var touch = e.changedTouches;
-        startx = touch[0].clientX;
-        starty = touch[0].clientY;
-      });
-    el &&
-      el.addEventListener("touchend", function (e) {
-        var touch = e.changedTouches;
-        endx = touch[0].clientX;
-        endy = touch[0].clientY;
-        let offsetX = endx - startx;
-        let offsetY = endy - starty;
-        if (Math.abs(offsetY) <= Math.abs(offsetX)) {
-          disabledMouseWheel()
-          cons();
-        }
-      });
-  }
-//阻止浏览器事件
-function disabledMouseWheel() {  
-  document.addEventListener('DOMMouseScroll', scrollFunc, false);  
-  document.addEventListener('mousewheel',scrollFunc,false);
-}
-//取消阻止浏览器事件
-function cancelDisMouseWheel(){
-  document.removeEventListener('DOMMouseScroll',scrollFunc,false);
-  document.removeEventListener('mousewheel',scrollFunc,false);
-}  
-function scrollFunc(evt) {  
-  evt = evt || window.event;  
-   if(evt.preventDefault) {  
-       // Firefox  
-       evt.preventDefault();  
-       evt.stopPropagation();  
-       } else{  
-       // IE  
-       evt.cancelBubble=true;  
-       evt.returnValue = false;  
-}  
-    return false;  
-}
-  useLayoutEffect(() => {
-    window.onscroll = () => {
-      let scrollTop = document.documentElement.scrollTop;
-      let clientHeight =
-        window.innerHeight ||
-        Math.min(
-          document.documentElement.clientHeight,
-          document.body.clientHeight
-        );
-      let scrollHeight = Math.max(
-        document.documentElement.scrollHeight,
-        document.body.scrollHeight
-      );
-      let tagEle = document.querySelector(".tag");
-      if (tagEle) {
-        if (tagEle.offsetTop > 0 && scrollTop >= tagEle.offsetTop / 0.52) {
-          setTagHeadShow(true);
-        } else {
-          setTagHeadShow(false);
-        }
-      }
-      if (clientHeight + scrollTop >= scrollHeight) {
-        let findTag = currentTag ? currentTag : "2";
+  }, [tagHeadShow]);
 
-        let params = {
-          pos: contentData[findTag].pos,
-          limit: 10,
-        };
-        if (findTag != "2") {
-          params.type = findTag;
-        }
-        getContentData(params);
-      }
+  //下拉加载更多 & 头悬浮
+  useLayoutEffect(() => {
+    let findTag = currentTag ? currentTag : "2";
+    window.onscroll = () => {
+      contentChangeScroll();
     };
-    // document.addEventListener("onscroll", function (e) {
-    //   let tagEle = document.querySelector(".tag");
-    //   if (
-    //     tagEle &&
-    //     document.documentElement.scrollTop >= tagEle.offsetTop * 0.52
-    //   ) {
-    //     setTagHeadShow(true)
-    //     tagEle.style.top = "0";
-    //   }
-    // });
+    document.addEventListener("onscroll", function (e) {
+      contentChangeScroll();
+    });
+    let index = tags.findIndex((item) => {
+      return item.id == findTag;
+    });
+    let cc = new Swiper(".swiper-container", {
+      freeMode: false,
+      initialSlide: index,
+      observer: true,
+      on: {
+        slideChangeTransitionStart: function () {
+          let tag_id = tags[this.activeIndex].id;
+          changeTagId(tag_id);
+        },
+      },
+      observeParents: false,
+      onSlideChangeEnd: function (swiper) {
+        swiper.update();
+        swiper.startAutoplay();
+        swiper.reLoop();
+      },
+    });
+    setMySwiper(cc);
   }, [contentData]);
 
-  //切换类型
-  const changeTag = (tag_id) => {
-    let ele = document.querySelector(".content");
-    let moveEle = document.querySelector(".middle_move");
-    let moveTopEle = document.querySelector(".top_move");
-    let width =
-      window.innerWidth ||
-      document.documentElement.clientWidth ||
-      document.body.clientWidth;
-    setCurrentTag(tag_id);
-    if (tag_id == "2") {
-      animate(ele, "marginLeft", 0);
-      moveEle.style.left = "2.58rem";
-      moveTopEle.style.left = "2.58rem";
-    } else if (tag_id == "0") {
-      animate(ele, "marginLeft", -1 * width);
-      moveEle.style.left = "3.54rem";
-      moveTopEle.style.left = "3.54rem";
-    } else {
-      animate(ele, "marginLeft", -2 * width);
-      moveEle.style.left = "4.5rem";
-      moveTopEle.style.left = "4.5rem";
+  //下拉加载更多 & 头悬浮
+  useLayoutEffect(() => {
+    window.onscroll = () => {
+      tagChangeScroll();
+    };
+    document.addEventListener("onscroll", function (e) {
+      tagChangeScroll();
+    });
+  }, [currentTag]);
+
+  const contentChangeScroll = () => {
+    let findTag = currentTag ? currentTag : "2";
+    let docscrollTop =
+      document.documentElement.scrollTop ||
+      window.pageYOffset ||
+      document.body.scrollTop;
+    let clientHeight =
+      window.innerHeight ||
+      Math.min(
+        document.documentElement.clientHeight,
+        document.body.clientHeight
+      );
+    let scrollHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight
+    );
+    let tagEle = document.querySelector(".tag");
+    if (tagEle) {
+      if (tagEle.offsetTop > 0 && docscrollTop >= tagEle.offsetTop / 0.52) {
+        setTagHeadShow(true);
+      } else {
+        setTagHeadShow(false);
+      }
+    }
+    if (clientHeight + docscrollTop >= scrollHeight) {
+      let params = {
+        pos: contentData[findTag].pos,
+        limit: 10,
+      };
+      if (findTag != "2") {
+        params.type = findTag;
+      }
+      getContentData(params);
     }
   };
 
-  //变速动画
-  function animate(element, attr, target) {
-    clearInterval(element.timeId);
-
-    element.timeId = setInterval(function () {
-      var current = parseInt(getStyle(element, attr));
-      var step = (target - current) / 10;
-      step = step > 0 ? Math.ceil(step) : Math.floor(step);
-      current += step;
-      element.style[attr] = current + "px";
-      if (current == target) {
-        clearInterval(element.timeId);
+  const tagChangeScroll = () => {
+    let docscrollTop =
+      document.documentElement.scrollTop ||
+      window.pageYOffset ||
+      document.body.scrollTop;
+    let clientHeight =
+      window.innerHeight ||
+      Math.min(
+        document.documentElement.clientHeight,
+        document.body.clientHeight
+      );
+    let scrollHeight = Math.max(
+      document.documentElement.scrollHeight,
+      document.body.scrollHeight
+    );
+    let tagEle = document.querySelector(".tag");
+    if (tagEle) {
+      if (tagEle.offsetTop > 0 && docscrollTop >= tagEle.offsetTop / 0.52) {
+        setTagHeadShow(true);
+      } else {
+        setTagHeadShow(false);
       }
-    }, 20);
-  }
-  function getStyle(element, attr) {
-    return getComputedStyle
-      ? getComputedStyle(element, null)[attr]
-      : element.currentStyle[attr];
-  }
+    }
+    if (clientHeight + docscrollTop >= scrollHeight) {
+      let findTag = currentTag ? currentTag : "2";
+      let newSc = { ...scrollTop };
+      newSc[findTag] = docscrollTop;
+      setScrollTop(newSc);
+      let params = {
+        pos: contentData[findTag].pos,
+        limit: 10,
+      };
+      if (findTag != "2") {
+        params.type = findTag;
+      }
+      getContentData(params);
+    }
+  };
+  //切换类型
+  const changeTag = (tag_id, index) => {
+    mySwiper.slideTo(index, 500, false); //切换到slide，速度为500ms
+    //保存当前tag的scrollTop
+    let newST = { ...scrollTop };
+    let docscrollTop =
+      document.documentElement.scrollTop ||
+      window.pageYOffset ||
+      document.body.scrollTop;
+    newST[currentTag] = docscrollTop;
+    setScrollTop(newST);
+    changeTagId(tag_id);
+  };
+
+  const changeTagId = (tag_id) => {
+    setCurrentTag(tag_id);
+    console.log(tagHeadTop)
+    let currentTop =
+      tagHeadShow && scrollTop[tag_id] < tagHeadTop
+        ? tagHeadTop
+        : scrollTop[tag_id];
+    let moveEle = document.querySelector(".middle_move");
+    let moveTopEle = document.querySelector(".top_move");
+    if (tag_id == "2") {
+      moveEle.style.left = "2.58rem";
+      moveTopEle.style.left = "2.58rem";
+    } else if (tag_id == "0") {
+      moveEle.style.left = "3.54rem";
+      moveTopEle.style.left = "3.54rem";
+    } else {
+      moveEle.style.left = "4.5rem";
+      moveTopEle.style.left = "4.5rem";
+    }
+    window.scrollTo(0, currentTop);
+  };
+
   //下载app
   const handleDownloadChelun = () => {
     util.jumpLink("https://chelun.com/url/HNxFKg6K");
@@ -278,7 +285,7 @@ function scrollFunc(evt) {
           className="tag_head"
           style={{ display: tagHeadShow ? "flex" : "none" }}
         >
-          {tags.map((item) => {
+          {tags.map((item, index) => {
             return (
               <li
                 className={
@@ -287,7 +294,7 @@ function scrollFunc(evt) {
                     : "tag_item current_tag_item"
                 }
                 key={item.id}
-                onClick={() => changeTag(item.id)}
+                onClick={() => changeTag(item.id, index)}
               >
                 {item.tagName}
               </li>
@@ -296,7 +303,7 @@ function scrollFunc(evt) {
           <li className="move top_move"> </li>
         </ul>
         <ul className="tag">
-          {tags.map((item) => {
+          {tags.map((item, index) => {
             return (
               <li
                 className={
@@ -305,7 +312,7 @@ function scrollFunc(evt) {
                     : "tag_item current_tag_item"
                 }
                 key={item.id}
-                onClick={() => changeTag(item.id)}
+                onClick={() => changeTag(item.id, index)}
               >
                 {item.tagName}
               </li>
@@ -315,19 +322,36 @@ function scrollFunc(evt) {
         </ul>
 
         {contentData && (
-          <div className="content" id="io">
-            <AllContent
-              contentData={contentData["2"].topic}
-              gotoDetail={gotoDetail}
-            />
-            <ArticalContent
-              contentData={contentData["0"].topic}
-              gotoDetail={gotoDetail}
-            />
-            <VideoContent
-              contentData={contentData["1"].topic}
-              gotoDetail={gotoDetail}
-            />
+          <div className="swiper-container">
+            <div className="swiper-wrapper">
+              <div className="swiper-slide">
+                <div style={{ display: currentTag != "2" ? "none" : "block" }}>
+                  <AllContent
+                    contentData={contentData["2"].topic}
+                    gotoDetail={gotoDetail}
+                  />
+                </div>
+              </div>
+              <div
+                className="swiper-slide"
+                style={{ height: currentTag != "0" && "0" }}
+              >
+                <div style={{ display: currentTag != "0" ? "none" : "block" }}>
+                  <ArticalContent
+                    contentData={contentData["0"].topic}
+                    gotoDetail={gotoDetail}
+                  />
+                </div>
+              </div>
+              <div className="swiper-slide">
+                <div style={{ display: currentTag != "1" ? "none" : "block" }}>
+                  <VideoContent
+                    contentData={contentData["1"].topic}
+                    gotoDetail={gotoDetail}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
